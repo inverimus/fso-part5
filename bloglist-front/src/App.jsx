@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
+
 import Blog from './components/Blog'
 import BlogForm from './components/BlogForm'
 import LoginForm from './components/LoginForm'
+import Togglable from './components/Togglable'
 import Notification from './components/Notification'
 import blogService from './services/blogs'
 import loginService from './services/login'
+
 import './index.css'
 
 const App = () => {
@@ -16,17 +19,22 @@ const App = () => {
   const [url, setUrl] = useState('')
   const [user, setUser] = useState(null)
   const [message, setMessage] = useState(null)
-
+  const [blogFormVisible, setBlogFormVisible] = useState(false)
+  
   useEffect(() => {
-    blogService.getAll().then(blogs => setBlogs(blogs))  
+    async function fetchBlogs() {
+      const blogs = await blogService.getAll()
+      setBlogs(blogs)
+    }
+    fetchBlogs()
   }, [])
 
   useEffect(() => {
     const loggedUserJSON = window.localStorage.getItem('loggedBlogappUser')
     if (loggedUserJSON) {
       const user = JSON.parse(loggedUserJSON)
-      setUser(user)
       blogService.setToken(user.token)
+      setUser(user)
     }
   }, [])
 
@@ -74,6 +82,7 @@ const App = () => {
       setTitle('')
       setAuthor('')
       setUrl('')
+      setBlogFormVisible(false)
       setSuccessMessage(`Added new blog: ${blog.title} by ${blog.author}`)
     } catch (exception) {
       console.log(exception)
@@ -84,7 +93,48 @@ const App = () => {
       } else if (exception.response.status === 400) {
         setErrorMessage(exception.response.data.error)
       }
-    } 
+    }
+  }
+
+  const handleLike = async (blog) => {
+    try {
+      const newLikes = {
+        user: blog.user.id,
+        likes: blog.likes + 1,
+        author: blog.author,
+        title: blog.title,
+        url: blog.url
+      }
+
+      const updatedBlog = await blogService.like(blog.id, newLikes)
+      setBlogs(blogs.map(b => b.id === updatedBlog.id ? updatedBlog : b))
+    } catch (exception) {
+      console.log(exception)
+    }
+  }
+
+  const handleRemove = async (blog) => {
+    if (!window.confirm(`Really remove ${blog.title}?`)) {
+      return
+    }
+
+    try {
+      await blogService.remove(blog.id)
+      setBlogs(blogs.filter(b => b.id !== blog.id))
+    } catch (exception) {
+      console.log(exception)
+      if (exception.response.status === 401) {
+        if (exception.response.data.error.includes('expired')) {
+          window.localStorage.removeItem('loggedBlogappUser')
+          setUser(null)
+          setErrorMessage('You have been logged out')
+        } else {
+          setErrorMessage(exception.response.data.error)
+        }
+      } else if (exception.response.status === 400) {
+        setErrorMessage(exception.response.data.error)
+      }
+    }
   }
 
   if (user === null) {
@@ -105,14 +155,15 @@ const App = () => {
       <h2>blogs</h2>
       <Notification message={message} />
       <p>{user.name} signed in <button onClick={handleLogout}>logout</button></p>
-      <h2>create new</h2>
-      <BlogForm handleCreate={handleCreate}
-        title={title} setTitle={setTitle}
-        author={author} setAuthor={setAuthor}
-        url={url} setUrl={setUrl}
-      />
+      <Togglable inline={false} buttonShowLabel='create new blog' buttonHideLabel='cancel' visible={blogFormVisible} setVisible={setBlogFormVisible}>
+        <BlogForm handleCreate={handleCreate}
+          title={title} setTitle={setTitle}
+          author={author} setAuthor={setAuthor}
+          url={url} setUrl={setUrl}
+        />
+      </Togglable>
       {blogs.map(blog =>
-        <Blog key={blog.id} blog={blog} />
+        <Blog key={blog.id} blog={blog} like={() => handleLike(blog)} remove={() => handleRemove(blog)} user={user}/>
       )}
     </div>
   )
