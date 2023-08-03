@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 
-import Togglable from './Togglable'
+const Blog = ({ blog, handleLike, handleRemove, user }) => {
+  const [detailsVisible, setDetailsVisible] = useState(false)
 
-const Blog = ({ blog, like, remove, user }) => {
-  const [blogVisible, setBlogVisible] = useState(false)
-  const displayInline = { display: 'inline' }
+  const showDetails = { display: detailsVisible ? '' : 'none' }
+  const showRemoveButton = { display: user.username === blog.user.username ? '' : 'none' }
+
+  const toggleVisibility = () => setDetailsVisible(!detailsVisible)
 
   const blogStyle = {
     paddingTop: 10,
@@ -15,26 +17,23 @@ const Blog = ({ blog, like, remove, user }) => {
     marginBottom: 5
   }
 
-  const removeButton = () => <button onClick={remove}>remove</button>
-
   return (
-    <div style={blogStyle}>
-      <div style={displayInline}>
-        {blog.title} {blog.author}
-        <Togglable inline={true} buttonShowLabel='view' buttonHideLabel='hide' visible={blogVisible} setVisible={setBlogVisible}>
-          <div>{blog.url}</div>
-          <div>{blog.likes} <button onClick={like}>likes</button></div>
-          <div>{blog.user.name}</div>
-          {user.username === blog.user.username && removeButton()}
-        </Togglable>
+    <div className='blog' style={blogStyle}>
+      {blog.title} {blog.author}
+      <button onClick={toggleVisibility} id='details-button'>{detailsVisible ? 'hide' :'view'}</button>
+      <div className='details' style={showDetails}>
+        <div>{blog.url}</div>
+        <div>likes {blog.likes} <button id='like-button' onClick={handleLike}>like</button></div>
+        <div>{blog.user.name}</div>
+        <div style={showRemoveButton}><button id='remove-button' onClick={handleRemove}>remove</button></div>
       </div>
     </div>
 )}
 
 Blog.propTypes = {
   blog: PropTypes.object.isRequired,
-  like: PropTypes.func.isRequired,
-  remove: PropTypes.func.isRequired,
+  handleLike: PropTypes.func.isRequired,
+  handleRemove: PropTypes.func.isRequired,
   user: PropTypes.object.isRequired
 }
 
